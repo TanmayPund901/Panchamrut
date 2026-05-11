@@ -1,0 +1,25 @@
+{
+  "entities": {
+    "Order": {
+      "title": "Order",
+      "description": "Customer order information",
+      "type": "object",
+      "properties": {
+        "customerName": { "type": "string", "description": "Name of the customer" },
+        "customerPhone": { "type": "string", "description": "Phone number of the customer" },
+        "customerCity": { "type": "string", "description": "City or village of the customer" },
+        "products": { "type": "string", "description": "List of products ordered" },
+        "orderType": { "type": "string", "description": "Type of order (Regular, Bulk, etc.)" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of when the order was placed" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "delivered"], "description": "Status of the order" }
+      },
+      "required": ["customerName", "customerPhone", "products", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Collection of customer orders"
+    }
+  }
+}

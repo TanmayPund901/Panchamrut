@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.token.email.lower() == "tanmaypund32@gmail.com" || 
+         request.auth.token.email.lower() == "kajal.zala@ceeindia.org" ||
+         request.auth.token.email.lower() == "nita.shreemali@ceeindia.org" ||
+         request.auth.token.email.lower() == "nitin.agravat@ceeindia.org" ||
+         request.auth.token.email.lower() == "azad.pagada@ceeindia.org" ||
+         request.auth.token.email.lower() == "khyati.parmar@ceeindia.org");
+    }
+
+    function isValidOrder(data) {
+      return data.customerName is string && data.customerName.size() > 0 &&
+             data.customerPhone is string && data.customerPhone.size() > 0 &&
+             data.products is string && data.products.size() > 0 &&
+             data.status == 'pending' &&
+             data.createdAt is timestamp;
+    }
+
+    match /orders/{orderId} {
+      allow create: if isValidOrder(request.resource.data);
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if isAdmin();
+    }
+  }
+}
