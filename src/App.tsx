@@ -8,20 +8,14 @@ import { motion, AnimatePresence, useInView } from 'motion/react';
 import { 
   Menu, X, Search, MessageCircle, Share2, 
   Leaf, Ban, Wheat, MapPin, Phone, Mail, Instagram, 
-  Check, ChevronRight, Heart, User, LogOut, Trash2, Plus, RefreshCw, Upload,
-  Settings
+  Check, ChevronRight, Heart
 } from 'lucide-react';
 import { PRODUCTS, STORIES, TRANSLATIONS, type Product, type Story } from './constants';
-import { db, auth, storage } from './firebase';
+import { db } from './firebase';
 import { 
   collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, 
-  getDocFromServer, doc, type Timestamp, updateDoc, deleteDoc
+  getDocFromServer, doc
 } from 'firebase/firestore';
-import { 
-  signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, type User as FirebaseUser 
-} from 'firebase/auth';
-import { AIChatAssistant } from './components/AIChatAssistant';
-import { AdminProductManager } from './components/AdminProductManager';
 
 // --- Error Handling ---
 
@@ -34,44 +28,13 @@ enum OperationType {
   WRITE = 'write',
 }
 
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId: string | undefined;
-    email: string | null | undefined;
-    emailVerified: boolean | undefined;
-    isAnonymous: boolean | undefined;
-    tenantId: string | null | undefined;
-    providerInfo: {
-      providerId: string;
-      displayName: string | null;
-      email: string | null;
-      photoUrl: string | null;
-    }[];
-  }
-}
-
 function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
+  const errInfo = {
     error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData.map(provider => ({
-        providerId: provider.providerId,
-        displayName: provider.displayName,
-        email: provider.email,
-        photoUrl: provider.photoURL
-      })) || []
-    },
+    authInfo: null,
     operationType,
     path
-  }
+  };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
@@ -270,21 +233,10 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState('All');
   const [scrolled, setScrolled] = useState(false);
   const [showBanner, setShowBanner] = useState(true);
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [orders, setOrders] = useState<any[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const isAdminRef = useRef(false);
-
-  useEffect(() => {
-    isAdminRef.current = isAdmin;
-  }, [isAdmin]);
-
   const [language, setLanguage] = useState<'en' | 'gu' | 'hi'>('en');
   const [dbProducts, setDbProducts] = useState<any[]>([]);
   const [isProductsLoaded, setIsProductsLoaded] = useState(false);
-  const [showProductManager, setShowProductManager] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
-  const [orderSearchQuery, setOrderSearchQuery] = useState('');
 
   const t = (path: string) => {
     const keys = path.split('.');
@@ -295,14 +247,6 @@ export default function App() {
     }
     return result;
   };
-  const [showAdminModal, setShowAdminModal] = useState(false);
-  const [adminOrderData, setAdminOrderData] = useState({
-    name: '',
-    phone: '',
-    city: '',
-    products: '',
-    type: 'Regular Order'
-  });
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 80);
@@ -336,91 +280,24 @@ export default function App() {
       setIsProductsLoaded(true); // Don't block loading
     });
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      const admins = [
-        "tanmaypund32@gmail.com", 
-        "kajal.zala@ceeindia.org", 
-        "nita.shreemali@ceeindia.org",
-        "nitin.agravat@ceeindia.org",
-        "azad.pagada@ceeindia.org",
-        "khyati.parmar@ceeindia.org"
-      ];
-      const isForced = window.localStorage.getItem('forceAdmin') === 'true';
-      if ((u && u.email && admins.includes(u.email.toLowerCase())) || isForced) {
-        console.log("Admin privileges granted:", u?.email || "Forced Admin");
-        setIsAdmin(true);
-      } else {
-        setIsAdmin(false);
-      }
-    });
-
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      unsubscribeAuth();
       unsubscribeProducts();
     };
   }, []);
 
-  const deleteProduct = async (id: string | number, name: string) => {
-    if (!window.confirm(`Are you sure you want to delete ${name}?`)) return;
-    
-    if (typeof id === 'number') {
-      alert("This is a default product. To delete it, please click 'Manage Products' and then 'Restore Default Products' (Refresh icon) to sync the store to the cloud first. Then you can delete any product.");
-      setShowProductManager(true);
-      return;
-    }
-
-    try {
-      await deleteDoc(doc(db, 'products', id as string));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `products/${id}`);
-    }
-  };
-
-  useEffect(() => {
-    if (isAdmin) {
-      const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
-      const unsubscribeOrders = onSnapshot(q, (snapshot) => {
-        const ordersData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setOrders(ordersData);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'orders');
-      });
-      return () => unsubscribeOrders();
-    }
-  }, [isAdmin]);
-
-  const handleLogin = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (error: any) {
-      if (error.code === 'auth/popup-closed-by-user') {
-        console.log("User closed the login popup.");
-        return;
-      }
-      console.error("Login failed", error);
-      alert(`Login failed: ${error.message}`);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error("Logout failed", error);
-    }
-  };
-
   const filteredProducts = useMemo(() => {
     // Merge Strategy:
     // 1. Start with Database Products
-    // 2. Add Default Products that are NOT in the Database
-    const merged = [...dbProducts];
+    // 2. IMPORTANT: If a database product has an older image than the code defaults, use the code image
+    // 3. Add Default Products that are NOT in the Database
+    const merged = dbProducts.map(dp => {
+      const defaultMatch = PRODUCTS.find(p => p.name.toLowerCase().trim() === dp.name.toLowerCase().trim());
+      if (defaultMatch && dp.image !== defaultMatch.image) {
+        return { ...dp, image: defaultMatch.image };
+      }
+      return dp;
+    });
     
     PRODUCTS.forEach(p => {
       const existsInDb = dbProducts.some(dp => dp.name.toLowerCase().trim() === p.name.toLowerCase().trim());
@@ -468,56 +345,6 @@ const WHATSAPP_NUMBERS = ['919512240470'];
     const msg = `Hi, I want to order ${productName} from Panchamrut. Please confirm availability and delivery charges.`;
     const targetNumber = WHATSAPP_NUMBERS[0];
     window.open(`https://wa.me/${targetNumber}?text=${encodeURIComponent(msg)}`, '_blank');
-  };
-
-  const updateOrderStatus = async (orderId: string, newStatus: string) => {
-    try {
-      await updateDoc(doc(db, 'orders', orderId), {
-        status: newStatus
-      });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'orders');
-    }
-  };
-
-  const deleteOrder = async (orderId: string) => {
-    if (!window.confirm('Are you sure you want to delete this order?')) return;
-    try {
-      await deleteDoc(doc(db, 'orders', orderId));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'orders');
-    }
-  };
-
-  const submitAdminOrder = async () => {
-    if (!adminOrderData.name || !adminOrderData.phone || !adminOrderData.products) {
-      alert('Please fill Name, Phone, and Products');
-      return;
-    }
-
-    try {
-      await addDoc(collection(db, 'orders'), {
-        customerName: adminOrderData.name,
-        customerPhone: adminOrderData.phone,
-        customerCity: adminOrderData.city,
-        products: adminOrderData.products,
-        orderType: adminOrderData.type,
-        createdAt: serverTimestamp(),
-        status: 'confirmed' // Admin orders are confirmed by default
-      });
-      
-      setAdminOrderData({
-        name: '',
-        phone: '',
-        city: '',
-        products: '',
-        type: 'Regular Order'
-      });
-      setShowAdminModal(false);
-      alert('Order added successfully!');
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'orders');
-    }
   };
 
   const submitOrder = async () => {
@@ -568,48 +395,7 @@ const WHATSAPP_NUMBERS = ['919512240470'];
     return '';
   }, [currentMonth]);
 
-  const handleQuickSync = async () => {
-    // Check if we already did this in this session
-    if (window.sessionStorage.getItem('syncDone')) return;
 
-    console.log("Starting automatic image sync...");
-    try {
-      const { getDocs, collection, doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
-      const snapshot = await getDocs(collection(db, 'products'));
-      
-      let updated = 0;
-      for (const defaultProduct of PRODUCTS) {
-        const matches = snapshot.docs.filter(d => 
-          (d.data().name || '').toLowerCase().trim() === defaultProduct.name.toLowerCase().trim()
-        );
-        
-        for (const m of matches) {
-          // If the image is different, update it
-          if (m.data().image !== defaultProduct.image) {
-            console.log(`Auto-updating image for ${defaultProduct.name}`);
-            await updateDoc(doc(db, 'products', m.id), {
-              image: defaultProduct.image,
-              updatedAt: serverTimestamp()
-            });
-            updated++;
-          }
-        }
-      }
-      if (updated > 0) {
-        console.log(`Auto-synced ${updated} products.`);
-        window.sessionStorage.setItem('syncDone', 'true');
-        // We don't reload automatically to avoid loops, the listener will update UI
-      }
-    } catch (error) {
-      console.error("Auto-sync error:", error);
-    }
-  };
-
-  useEffect(() => {
-    if (isAdmin && isProductsLoaded) {
-      handleQuickSync();
-    }
-  }, [isAdmin, isProductsLoaded]);
 
   return (
     <div className="grain-bg min-h-screen">
@@ -665,52 +451,6 @@ const WHATSAPP_NUMBERS = ['919512240470'];
           </nav>
 
           <div className="flex items-center gap-4">
-            {user ? (
-              <div className="flex items-center gap-2">
-                <img src={user.photoURL || ''} alt={user.displayName || ''} className="h-8 w-8 rounded-full border border-gold" />
-                <button onClick={handleLogout} className="text-white hover:text-gold transition-colors">
-                  <LogOut size={20} />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <button 
-                  id="google-login-btn"
-                  onClick={handleLogin} 
-                  className="text-white hover:text-gold transition-colors flex items-center gap-1"
-                  title="Login with Google"
-                >
-                  <User size={20} />
-                  <span className="hidden lg:inline text-xs">Login</span>
-                </button>
-                {/* Debug bypass for admin if popup is blocked */}
-                <button 
-                  id="admin-bypass-btn"
-                  onClick={() => {
-                    const email = window.prompt("Admin Email (for testing if login fails):");
-                    if (email) {
-                      const admins = [
-                        "tanmaypund32@gmail.com", 
-                        "kajal.zala@ceeindia.org", 
-                        "nita.shreemali@ceeindia.org",
-                        "nitin.agravat@ceeindia.org",
-                        "azad.pagada@ceeindia.org",
-                        "khyati.parmar@ceeindia.org"
-                      ];
-                      if (admins.includes(email.toLowerCase().trim())) {
-                        window.localStorage.setItem('forceAdmin', 'true');
-                        alert("Bypass active. Please refresh the page manually once if needed.");
-                        window.location.reload();
-                      }
-                    }
-                  }}
-                  className="text-white opacity-20 hover:opacity-100 transition-opacity"
-                  title="Admin Bypass"
-                >
-                  <Settings size={14} />
-                </button>
-              </div>
-            )}
             <a 
               href="#order" 
               className="hidden rounded-full bg-gold px-6 py-2 text-sm font-bold text-text transition-transform hover:scale-105 md:block"
@@ -1054,18 +794,7 @@ const WHATSAPP_NUMBERS = ['919512240470'];
                   transition={{ duration: 0.4, delay: idx * 0.05 }}
                   className="group relative flex flex-col overflow-hidden rounded-2xl border border-gold/30 bg-cream-dark transition-all hover:-translate-y-1 hover:shadow-xl"
                 >
-                  {isAdmin && (
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteProduct(product.id, product.name);
-                      }}
-                      className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-red-500 text-white shadow-lg opacity-0 transition-opacity group-hover:opacity-100"
-                      title="Delete Product"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  )}
+
                   <div 
                     className="relative flex h-56 cursor-zoom-in items-center justify-center overflow-hidden bg-white/40 ring-1 ring-inset ring-gold/10"
                     onClick={() => setZoomedImage(product.image)}
@@ -1466,180 +1195,7 @@ const WHATSAPP_NUMBERS = ['919512240470'];
             <div className="flex items-center gap-2"><Leaf size={16} className="text-gold" /> Supported by Project Aarohan</div>
           </div>
 
-          {/* Admin Orders View */}
-          {isAdmin && (
-            <div className="mt-20 space-y-8">
-              <div className="rounded-2xl border border-gold bg-white p-8 shadow-xl">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-gold/10 pb-6">
-                  <h3 className="text-2xl font-bold text-green">Admin Portal - Order Management</h3>
-                  <div className="flex flex-wrap gap-2">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={16} />
-                      <input 
-                        type="text"
-                        placeholder="Search name or phone..."
-                        value={orderSearchQuery}
-                        onChange={(e) => setOrderSearchQuery(e.target.value)}
-                        className="rounded-lg border border-gold/40 bg-white py-2 pl-10 pr-4 text-sm outline-none focus:border-green w-64"
-                      />
-                    </div>
-                    <button 
-                      onClick={() => setShowProductManager(true)}
-                      className="rounded-lg bg-green px-6 py-2 text-sm font-bold text-white hover:bg-green-dark"
-                    >
-                      Manage Products
-                    </button>
-                    <button 
-                      onClick={() => setShowAdminModal(true)}
-                      className="rounded-lg bg-gold px-6 py-2 text-sm font-bold text-white hover:bg-gold-light"
-                    >
-                      + Add New Order
-                    </button>
-                  </div>
-                </div>
 
-              {orders.length === 0 ? (
-                <p className="mt-8 text-center text-text-muted italic">No orders found.</p>
-              ) : (
-                <div className="mt-6 overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-gold/20 text-terra">
-                        <th className="pb-4 pr-4">Date</th>
-                        <th className="pb-4 pr-4">Customer</th>
-                        <th className="pb-4 pr-4">Products</th>
-                        <th className="pb-4 pr-4">Status</th>
-                        <th className="pb-4 pr-4">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orders
-                        .filter(order => 
-                          (order.customerName?.toLowerCase().includes(orderSearchQuery.toLowerCase())) ||
-                          (order.customerPhone?.includes(orderSearchQuery))
-                        )
-                        .map((order) => (
-                        <tr key={order.id} className="border-b border-gold/10 hover:bg-cream-dark transition-colors">
-                          <td className="py-4 pr-4">
-                            {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'Pending...'}
-                          </td>
-                          <td className="py-4 pr-4">
-                            <div className="font-bold">{order.customerName}</div>
-                            <div className="text-xs text-text-muted">{order.customerPhone}</div>
-                            <div className="text-xs text-text-muted">{order.customerCity}</div>
-                            <div className="mt-1 text-[10px] font-medium text-gold uppercase tracking-wider">{order.orderType}</div>
-                          </td>
-                          <td className="py-4 pr-4 max-w-sm">
-                            <div className="line-clamp-2 text-xs" title={order.products}>{order.products}</div>
-                          </td>
-                          <td className="py-4 pr-4">
-                            <select 
-                              value={order.status}
-                              onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                              className={`rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-widest outline-none border transition-all cursor-pointer ${
-                                order.status === 'delivered' ? 'bg-green/10 text-green border-green' : 
-                                order.status === 'confirmed' ? 'bg-blue-600/10 text-blue-600 border-blue-600' : 
-                                'bg-gold/10 text-terra border-gold'
-                              }`}
-                            >
-                              <option value="pending" className="bg-white text-terra">Pending</option>
-                              <option value="confirmed" className="bg-white text-blue-600">Confirmed</option>
-                              <option value="delivered" className="bg-white text-green">Delivered</option>
-                            </select>
-                          </td>
-                          <td className="py-4 pr-4">
-                            <button 
-                              onClick={() => deleteOrder(order.id)}
-                              className="text-red-500 hover:text-red-700"
-                              title="Delete Order"
-                            >
-                              <LogOut size={16} className="rotate-180" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-          )}
-
-          {/* Admin Add Order Modal */}
-          <AnimatePresence>
-            {showAdminModal && (
-              <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onClick={() => setShowAdminModal(false)}
-                  className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                />
-                <motion.div 
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.9, opacity: 0 }}
-                  className="relative w-full max-w-lg rounded-2xl bg-white p-8 shadow-2xl"
-                >
-                  <button 
-                    onClick={() => setShowAdminModal(false)}
-                    className="absolute right-4 top-4 text-text-muted hover:text-text"
-                  >
-                    <X size={24} />
-                  </button>
-                  <h3 className="text-2xl font-bold text-green">Add New Order (Admin)</h3>
-                  <div className="mt-6 space-y-4">
-                    <input 
-                      type="text" 
-                      placeholder="Customer Name *" 
-                      value={adminOrderData.name}
-                      onChange={(e) => setAdminOrderData({...adminOrderData, name: e.target.value})}
-                      className="w-full rounded-lg border border-gold/40 p-3 outline-none focus:border-green" 
-                    />
-                    <input 
-                      type="tel" 
-                      placeholder="Phone Number *" 
-                      value={adminOrderData.phone}
-                      onChange={(e) => setAdminOrderData({...adminOrderData, phone: e.target.value})}
-                      className="w-full rounded-lg border border-gold/40 p-3 outline-none focus:border-green" 
-                    />
-                    <input 
-                      type="text" 
-                      placeholder="City / Village" 
-                      value={adminOrderData.city}
-                      onChange={(e) => setAdminOrderData({...adminOrderData, city: e.target.value})}
-                      className="w-full rounded-lg border border-gold/40 p-3 outline-none focus:border-green" 
-                    />
-                    <textarea 
-                      placeholder="Products *" 
-                      rows={3} 
-                      value={adminOrderData.products}
-                      onChange={(e) => setAdminOrderData({...adminOrderData, products: e.target.value})}
-                      className="w-full rounded-lg border border-gold/40 p-3 outline-none focus:border-green"
-                    ></textarea>
-                    <select 
-                      value={adminOrderData.type}
-                      onChange={(e) => setAdminOrderData({...adminOrderData, type: e.target.value})}
-                      className="w-full rounded-lg border border-gold/40 p-3 outline-none focus:border-green"
-                    >
-                      <option>Regular Order</option>
-                      <option>Bulk / Wholesale</option>
-                      <option>Corporate Gift Hamper</option>
-                      <option>General Enquiry</option>
-                    </select>
-                    <button 
-                      onClick={submitAdminOrder}
-                      className="w-full rounded-lg bg-green py-4 font-bold text-white hover:bg-green-dark"
-                    >
-                      Create Order
-                    </button>
-                  </div>
-                </motion.div>
-              </div>
-            )}
-          </AnimatePresence>
         </div>
       </section>
 
@@ -1758,90 +1314,7 @@ const WHATSAPP_NUMBERS = ['919512240470'];
         )}
       </AnimatePresence>
 
-      <AIChatAssistant language={language} />
-      
-      {showProductManager && (
-        <AdminProductManager onClose={() => setShowProductManager(false)} />
-      )}
 
-      {/* Persistent Admin Floating Bar */}
-      <AnimatePresence>
-        {isAdmin && (
-          <motion.div 
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            className="fixed bottom-6 right-6 z-[3000] flex flex-col gap-3"
-          >
-            <div className="bg-white/95 backdrop-blur-xl p-5 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-gold/30 flex flex-col gap-3 min-w-[260px]">
-              <div className="flex items-center justify-between px-3 mb-1">
-                <span className="text-[10px] font-black text-gold uppercase tracking-[0.3em]">Administrator</span>
-                <div className="h-2 w-2 rounded-full bg-green animate-pulse"></div>
-              </div>
-              
-              <button 
-                onClick={async () => {
-                  try {
-                    window.sessionStorage.removeItem('syncDone');
-                    setIsProductsLoaded(false);
-                    // Import inside the handler to be safe
-                    const { getDocs, collection, doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
-                    const snapshot = await getDocs(collection(db, 'products'));
-                    
-                    let updated = 0;
-                    for (const p of PRODUCTS) {
-                      const matches = snapshot.docs.filter(d => 
-                        (d.data().name || '').toLowerCase().trim() === p.name.toLowerCase().trim()
-                      );
-                      for (const m of matches) {
-                        await updateDoc(doc(db, 'products', m.id), {
-                          image: p.image,
-                          updatedAt: serverTimestamp()
-                        });
-                        updated++;
-                      }
-                    }
-                    alert(`✅ Image Fix Applied!\nUpdated ${updated} items.`);
-                  } catch (err) {
-                    console.error(err);
-                    alert("Fix failed. Check console.");
-                  } finally {
-                    setIsProductsLoaded(true);
-                  }
-                }}
-                className="group relative flex items-center gap-3 bg-terra text-white px-6 py-4 rounded-2xl font-bold transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-terra/20"
-              >
-                <div className="absolute inset-0 rounded-2xl bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <RefreshCw size={22} className="group-hover:rotate-180 transition-transform duration-500" />
-                <span>APPLY IMAGE FIX NOW</span>
-              </button>
-
-              <button 
-                onClick={() => setShowProductManager(true)}
-                className="flex items-center gap-3 bg-green text-white px-6 py-4 rounded-2xl font-bold transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-green/20"
-              >
-                <Settings size={22} />
-                <span>Manage All Products</span>
-              </button>
-
-              <button 
-                onClick={() => setShowAdminModal(true)}
-                className="flex items-center gap-3 bg-gold text-white px-6 py-4 rounded-2xl font-bold transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-gold/20"
-              >
-                <Plus size={22} />
-                <span>Add New Order</span>
-              </button>
-
-              <button 
-                onClick={() => setIsAdmin(false)}
-                className="text-xs text-gray-400 font-medium hover:text-terra transition-colors"
-              >
-                Exit Admin Mode
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
