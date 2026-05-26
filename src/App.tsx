@@ -1231,7 +1231,8 @@ const WHATSAPP_NUMBERS = ['919512240470'];
             <h4 className="text-sm font-bold uppercase tracking-widest text-[#A8D5B0]">Contact & Order</h4>
             <div className="mt-6 space-y-4 text-sm">
               <p className="flex items-center gap-3"><Phone size={18} className="text-gold" /> +91-95122-40470</p>
-              <p className="flex items-center gap-3"><Mail size={18} className="text-gold" /> panchamrut@mahidadfpc.com</p>
+              <p className="flex items-center gap-3"><Mail size={18} className="text-gold" /> kajal.zala@ceeindia.org</p>
+              <p className="flex items-center gap-3"><Mail size={18} className="text-gold" /> nita.shreemali@ceeindia.org</p>
               <p className="flex items-center gap-3"><Instagram size={18} className="text-gold" /> @panchamrut_official</p>
               <p className="flex items-center gap-3"><MapPin size={18} className="text-gold" /> Saurashtra, Gujarat</p>
             </div>
