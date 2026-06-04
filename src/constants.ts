@@ -47,7 +47,7 @@ export const PRODUCTS: Product[] = [
   { id:8, name:"Findala Pulp with Stevia", gujarati:"ફિંડાળા પલ્પ", hindi:"ફિંડાલા પલ્પ", category:"drinks", price:400, weight:"750ml", badge:"Medicinal",
     benefit:"Improves haemoglobin. Digestive support. Immunity booster.",
     desc:"Prickly pear pulp with natural stevia. Improves haemoglobin and red blood cells. Digestive support, sugar control. Rich in Vitamin C, B6, Potassium, Magnesium. Recommended by patients for natural health support.",
-    imgColor:"#F5F5F0", image: "https://i.ibb.co/QsD1vMM/Chat-GPT-Image-May-25-2026-10-18-24-AM.png" },
+    imgColor:"#F5F5F0", image: "https://i.ibb.co/35GrrgbS/Chat-GPT-Image-Jun-4-2026-12-16-43-PM.png" },
   // MASALAS & SPICES
   { id:9, name:"Chaas Masala", gujarati:"છાસ મસાલો", hindi:"छाछ मसाला", category:"masalas", price:30, weight:"50g", badge:"",
     benefit:"For buttermilk and cooking. Herbal blend.",
@@ -115,7 +115,7 @@ export const PRODUCTS: Product[] = [
   { id:25, name:"Cotton Divot (Diya Batti)", gujarati:"કોટન દિવો", hindi:"કોટન દિવો", category:"religious", price:25, weight:"55-80g", badge:"Seasonal",
     benefit:"Hand-rolled cotton wicks for diyas. Pure and clean-burning.",
     desc:"Hand-rolled pure cotton wicks for oil diyas. Perfect for daily pooja and Diwali. Clean-burning, no smoke. Seasonal peak during Diwali.",
-    imgColor:"#F5F5F0", image: "https://i.ibb.co/y2TQ3LS/Chat-GPT-Image-May-25-2026-10-15-55-AM.png" },
+    imgColor:"#F5F5F0", image: "https://i.ibb.co/5WkQrxsL/Chat-GPT-Image-Jun-4-2026-10-41-29-AM.png" },
   { id:26, name:"Cow Dung Tikki", gujarati:"ગોબર ટિક્કી", hindi:"ગોબર ટિક્કી", category:"religious", price:50, weight:"8 pcs", badge:"",
     benefit:"Natural mosquito repellent. Household fumigation. Zero chemicals.",
     desc:"8 pieces of dried cow dung discs. Traditional natural mosquito repellent and household fumigation. Eco-friendly, zero chemicals, zero plastic.",
@@ -124,11 +124,11 @@ export const PRODUCTS: Product[] = [
   { id:27, name:"Natural Loofah Scrubber", gujarati:"લૂફા સ્ક્રબર", hindi:"લૂફા સ્ક્રબર", category:"eco", price:55, weight:"1 piece", badge:"",
     benefit:"100% biodegradable. Kitchen and bath. Plastic-free.",
     desc:"Natural sponge gourd (turai) loofah scrubber. Completely biodegradable, zero plastic. Works for kitchen dishes, bathing, and skin exfoliation. Grown in village farms.",
-    imgColor:"#F5F5F0", image: "https://i.ibb.co/GvrGSP5n/Chat-GPT-Image-May-25-2026-10-12-40-AM.png" },
+    imgColor:"#F5F5F0", image: "https://i.ibb.co/0jhSJRdB/Chat-GPT-Image-Jun-4-2026-10-42-06-AM.png" },
   { id:28, name:"Natural Holi Colour", gujarati:"કુદરતી હોળી રંગ", hindi:"કુદરતી હોળી રંગ", category:"eco", price:50, weight:"100g", badge:"Seasonal",
     benefit:"Chemical-free. Made from flowers and organic pigments. Skin-safe.",
     desc:"Chemical-free Holi colour made from natural flowers, turmeric, and plant-based pigments. Safe for skin and eyes. Safe for children. Seasonal — available February-March.",
-    imgColor:"#F5F5F0", image: "https://i.ibb.co/7J3tWnYG/holi-colour.png" }
+    imgColor:"#F5F5F0", image: "https://i.ibb.co/KkNP9tf/Chat-GPT-Image-Jun-4-2026-10-41-14-AM.png" }
 ];
 
 export interface Story {
