@@ -18,7 +18,7 @@ export const PRODUCTS: Product[] = [
   { id:1, name:"Date & Lime Pickle", gujarati:"ખજૂર-લીંબુ અથાણું", hindi:"खजूर-नींबू का अचार", category:"pickles", price:250, weight:"500g", badge:"Bestseller",
     benefit:"Non-oil based. Fresh lime, dates, jaggery. No preservatives.",
     desc:"Fresh lime juice, dates, sugar, jaggery, red chilli powder, achar masala. Traditional recipe. Non-oil based — our most distinctive product.",
-    imgColor:"#F5F5F0", image: "https://i.ibb.co/fzVKD4Wr/Chat-GPT-Image-May-22-2026-06-44-16-PM.png" },
+    imgColor:"#F5F5F0", image: "https://i.ibb.co/7dsdPLXw/Chat-GPT-Image-Jun-5-2026-01-10-35-PM.png" },
   { id:2, name:"Mango Pickle", gujarati:"કેરીનું અથાણું", hindi:"आम का अचार", category:"pickles", price:150, weight:"500g", badge:"",
     benefit:"Traditional stone-ground spices. No oil, no preservatives.",
     desc:"Saurashtra-style mango pickle. Stone-ground homemade spices. Absolutely no artificial colour or preservative.",
