@@ -269,10 +269,21 @@ export default function App() {
     // Fetch Products from Firestore
     const qProducts = query(collection(db, 'products'), orderBy('name', 'asc'));
     const unsubscribeProducts = onSnapshot(qProducts, (snapshot) => {
-      const productsData = snapshot.docs.map(doc => {
-        const data = doc.data() as Product;
-        return { ...data, id: doc.id, image: getDirectImageUrl(data.image || '') };
-      });
+      const productsData = snapshot.docs
+        .filter(document => {
+          const data = document.data() as Product;
+          return data && data.name && !data.name.toLowerCase().includes("stevia");
+        })
+        .map(doc => {
+          const data = doc.data() as Product;
+          return { 
+            ...data, 
+            dbId: doc.id,
+            originalId: data.id,
+            id: doc.id, 
+            image: getDirectImageUrl(data.image || '') 
+          };
+        });
       setDbProducts(productsData);
       setIsProductsLoaded(true);
     }, (error) => {
@@ -287,20 +298,53 @@ export default function App() {
   }, []);
 
   const filteredProducts = useMemo(() => {
+    // Helper to deeply match database products against hardcoded code defaults (synonyms & legacy names)
+    const isMatch = (p: Product, dp: any) => {
+      if (p.id === dp.originalId) return true;
+      
+      const pName = (p.name || '').toLowerCase().trim();
+      const dpName = (dp.name || '').toLowerCase().trim();
+      
+      // Synonym match: Lemon-Ginger combination (Lemon-Ginger Sharbat vs Panchamrut Lemon-Ginger Juice)
+      const isLemonGinger = (name: string) => 
+        name.includes('lemon') && (name.includes('ginger') || name.includes('giger') || name.includes('sharbat') || name.includes('juice'));
+      if (isLemonGinger(pName) && isLemonGinger(dpName)) return true;
+      
+      // Synonym match: Holi colour (Natural Holi Colour vs Natural Holi Colour (Herbal Gulal))
+      const isHoli = (name: string) => 
+        name.includes('holi') && (name.includes('colour') || name.includes('color') || name.includes('gulal'));
+      if (isHoli(pName) && isHoli(dpName)) return true;
+      
+      // Synonym match: Tooth powder (Herbal Toothpowder vs Tooth Powder (Dant Manjan))
+      const isToothPowder = (name: string) => 
+        name.includes('tooth') || name.includes('manjan') || name.includes('toothpowder') || name.includes('dant');
+      if (isToothPowder(pName) && isToothPowder(dpName)) return true;
+      
+      if (pName === dpName) return true;
+      
+      if (p.gujarati && dp.gujarati && p.gujarati.trim() === dp.gujarati.trim()) return true;
+      
+      return false;
+    };
+
     // Merge Strategy:
     // 1. Start with Database Products
-    // 2. IMPORTANT: If a database product has an older image than the code defaults, use the code image
+    // 2. IMPORTANT: If a database product matches the code defaults by id/name/gujarati, use the latest code values as source of truth (prices, names, weights, images)
     // 3. Add Default Products that are NOT in the Database
     const merged = dbProducts.map(dp => {
-      const defaultMatch = PRODUCTS.find(p => p.name.toLowerCase().trim() === dp.name.toLowerCase().trim());
-      if (defaultMatch && dp.image !== defaultMatch.image) {
-        return { ...dp, image: defaultMatch.image };
+      const defaultMatch = PRODUCTS.find(p => isMatch(p, dp));
+      if (defaultMatch) {
+        return { 
+          ...dp, 
+          ...defaultMatch, 
+          id: dp.id // Preserve the firestore doc.id for key rendering
+        };
       }
       return dp;
     });
     
     PRODUCTS.forEach(p => {
-      const existsInDb = dbProducts.some(dp => dp.name.toLowerCase().trim() === p.name.toLowerCase().trim());
+      const existsInDb = dbProducts.some(dp => isMatch(p, dp));
       if (!existsInDb) {
         merged.push({ ...p, id: `default-${p.id}` });
       }
@@ -313,6 +357,12 @@ export default function App() {
       const pNameLow = (p.name || '').toLowerCase();
       const pGuj = p.gujarati || '';
       if (pNameLow.includes('incense') || pNameLow.includes('agarbatti') || pGuj.includes('અગરબત્તી')) return false;
+
+      // EXCLUDE CHAAS MASALA PER USER REQUEST
+      if (
+        pNameLow.includes('chaas masala') || 
+        pNameLow.includes('chas masala')
+      ) return false;
 
       const pName = p.name || '';
       const pDesc = p.desc || '';
@@ -1047,7 +1097,7 @@ const WHATSAPP_NUMBERS = ['919512240470'];
               {
                 name: "Saurashtra Royal",
                 price: "1,200",
-                contents: "Premium hamper + Findala Pulp + Mix Fruit Jam + Milk Masala + Cow Ghee (500g) + Natural Holi Colour",
+                contents: "Premium hamper + Lemon-Ginger Sharbat + Mix Fruit Jam + Milk Masala + Cow Ghee (500g) + Natural Holi Colour",
                 for: "The complete Panchamrut experience in one beautiful cloth bag",
                 badge: "Premium CSR Gift",
                 image: "https://picsum.photos/seed/hamper3/400/300"
